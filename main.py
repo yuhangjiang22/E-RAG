@@ -325,7 +325,6 @@ def read_docs(path):
     return files
 
 def main(args):
-
     setseed(args.seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
