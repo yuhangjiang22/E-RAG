@@ -122,15 +122,14 @@ class ERAG(PreTrainedModel):
         obj_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(sequence_output, obj_idx)])
         rep = torch.cat((sub_output, obj_output), dim=1)
 
+        cls_rep = torch.cat([a[0].unsqueeze(0) for a in doc_sequence_output])
+        cls_rep = torch.cat((rep, cls_rep), dim=1)
+
         rep = self.input_linear(rep)
         rep = self.layer_norm(rep)
         rep = self.dropout(rep)
 
-        cls_rep = torch.cat([a[0].unsqueeze(0) for a in doc_sequence_output])
-
-        cls_rep = torch.cat((rep, cls_rep), dim=1)
         cls_rep = self.doc_linear(cls_rep)
-
         cls_rep = self.layer_norm(cls_rep)
         cls_rep = self.dropout(cls_rep)
 
