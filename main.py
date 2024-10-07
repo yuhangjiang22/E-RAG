@@ -255,6 +255,9 @@ def evaluate(model, device, eval_dataloader, eval_label_ids):
         segment_ids = segment_ids.to(device)
         sub_idx = sub_idx.to(device)
         obj_idx = obj_idx.to(device)
+        doc_input_ids = doc_input_ids.to(device)
+        doc_input_mask = doc_input_mask.to(device)
+        doc_type_ids = doc_type_ids.to(device)
 
         with torch.no_grad():
             logits = model(input_ids,
