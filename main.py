@@ -40,8 +40,8 @@ def add_description_words(tokenizer, documents):
 
     def add_words(d):
         if type(d) == list:
-            for l in d.items():
-                add_words(l)
+            for l in d:
+                add_words(l.spilt())
         else:
             for w in d:
                 if w not in tokenizer.vocab:
@@ -650,6 +650,7 @@ if __name__ == "__main__":
     parser.add_argument('--drop_out', type=float, default=0.1,
                         help="hidden drop out rate.")
     parser.add_argument('--num_docs', type=int, default=1)
+    parser.add_argument("--document_path", default=None, type=str, help="The path to the relevant documents.")
 
     args = parser.parse_args()
     main(args)
