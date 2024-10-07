@@ -133,7 +133,6 @@ class ERAG(PreTrainedModel):
         cls_rep = self.layer_norm(cls_rep)
         cls_rep = self.dropout(cls_rep)
 
-
         logits = self.classifier(rep)
         doc_logits = self.doc_classifier(cls_rep)
 
@@ -150,7 +149,8 @@ class ERAG(PreTrainedModel):
         dynamic_alpha = 1 - normalized_entropy  # if logits_entropy is low, dynamic_alpha will be high
 
         # Combine logits and doc_logits using dynamic_alpha
-        combined_logits = dynamic_alpha.unsqueeze(1) * logits + (1 - dynamic_alpha.unsqueeze(1)) * doc_logits
+        # combined_logits = dynamic_alpha.unsqueeze(1) * logits + (1 - dynamic_alpha.unsqueeze(1)) * doc_logits
+        combined_logits = doc_logits
 
         if labels is not None:
             loss_fct = CrossEntropyLoss()
