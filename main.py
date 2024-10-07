@@ -379,7 +379,7 @@ def main(args):
                         )
 
     tokenizer = AutoTokenizer.from_pretrained(args.model, do_lower_case=args.do_lower_case)
-    add_description_words(tokenizer, relevant_documents)
+    # add_description_words(tokenizer, relevant_documents)
 
     if args.add_new_tokens:
         add_marker_tokens(tokenizer, task_ner_labels[args.task])
