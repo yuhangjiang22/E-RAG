@@ -263,9 +263,9 @@ def evaluate(model, device, eval_dataloader, eval_label_ids):
                            labels=None,
                            sub_idx=sub_idx,
                            obj_idx=obj_idx,
-                           descriptions_input_ids=doc_input_ids,
-                           descriptions_input_mask=doc_input_mask,
-                           descriptions_type_ids=doc_type_ids,
+                           doc_input_ids=doc_input_ids,
+                           doc_input_mask=doc_input_mask,
+                           doc_type_ids=doc_type_ids,
                            return_dict=True)
         nb_eval_steps += 1
         if len(preds) == 0:
