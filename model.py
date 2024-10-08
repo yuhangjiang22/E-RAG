@@ -209,7 +209,7 @@ class ERAGWithCrossAttention(PreTrainedModel):
         self.cross_attention_layer = CrossAttentionLayer(hf_config.hidden_size)
         self.layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)
+        self.classifier = nn.Linear(hf_config.hidden_size * 4, config.num_labels)
 
     def forward(self,
                 input_ids: torch.LongTensor = None,
