@@ -154,7 +154,8 @@ class ERAG(PreTrainedModel):
 
         if labels is not None:
             loss_fct = CrossEntropyLoss()
-            loss = loss_fct(combined_logits.view(-1, self.num_labels), labels.view(-1))
+            # loss = loss_fct(combined_logits.view(-1, self.num_labels), labels.view(-1))
+            loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
             return loss
         else:
-            return combined_logits
+            return logits
