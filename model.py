@@ -36,7 +36,6 @@ class ERAG(PreTrainedModel):
             pretrained_model_name_or_path=config.pretrained_model_name_or_path,
         )
         self.hf_config = hf_config
-        self.config.pruned_heads = hf_config.pruned_heads
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.layer_norm = BertLayerNorm(hf_config.hidden_size)
         self.post_init()
@@ -158,6 +157,95 @@ class ERAG(PreTrainedModel):
             loss1 = loss_fct(combined_logits.view(-1, self.num_labels), labels.view(-1))
             loss2 = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
             loss = self.alpha * loss1 + (1 - self.alpha) * loss2
-            return loss2
+            return loss
         else:
             return combined_logits
+
+
+class CrossAttentionLayer(nn.Module):
+    def __init__(self, hidden_size):
+        super(CrossAttentionLayer, self).__init__()
+        self.hidden_size = hidden_size
+
+        # Cross-attention between document and input representations
+        self.query = nn.Linear(hidden_size, hidden_size)
+        self.key = nn.Linear(hidden_size, hidden_size)
+        self.value = nn.Linear(hidden_size, hidden_size)
+        self.attention_dropout = nn.Dropout(0.1)
+
+    def forward(self, query_tensor, key_value_tensor, attention_mask=None):
+        # Calculate attention scores
+        query_layer = self.query(query_tensor)
+        key_layer = self.key(key_value_tensor)
+        value_layer = self.value(key_value_tensor)
+
+        # Scaled dot-product attention
+        attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2)) / (self.hidden_size ** 0.5)
+
+        # Apply attention mask (if any)
+        if attention_mask is not None:
+            attention_scores = attention_scores + attention_mask
+
+        attention_probs = nn.Softmax(dim=-1)(attention_scores)
+        attention_probs = self.attention_dropout(attention_probs)
+
+        # Get the final cross-attended representation
+        context_layer = torch.matmul(attention_probs, value_layer)
+        return context_layer
+
+
+class ERAGWithCrossAttention(nn.Module):
+
+    config_class = ERAGConfig
+
+    def __init__(self, config):
+        super(ERAGWithCrossAttention, self).__init__(config)
+
+        hf_config = AutoConfig.from_pretrained(config.pretrained_model_name_or_path)
+
+        self.input_encoder = AutoModel.from_pretrained(config.pretrained_model_name_or_path, add_pooling_layer=False)
+        self.documents_encoder = AutoModel.from_pretrained(config.pretrained_model_name_or_path, add_pooling_layer=False)
+
+        self.cross_attention_layer = CrossAttentionLayer(hf_config.hidden_size)
+        self.layer_norm = nn.LayerNorm(hf_config.hidden_size)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)
+
+    def forward(self, input_ids, attention_mask, token_type_ids, doc_input_ids, doc_input_mask, doc_type_ids, sub_idx,
+                obj_idx, labels=None):
+        # Encode input text
+        input_outputs = self.input_encoder(
+            input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, return_dict=True
+        )
+        sequence_output = input_outputs.last_hidden_state
+
+        # Encode documents
+        doc_outputs = self.documents_encoder(
+            doc_input_ids, attention_mask=doc_input_mask, token_type_ids=doc_type_ids, return_dict=True
+        )
+        doc_sequence_output = doc_outputs.last_hidden_state
+
+        # Cross-attention between input and document encoder outputs
+        cross_attended_output = self.cross_attention_layer(sequence_output, doc_sequence_output)
+
+        # Combine representations (e.g., by summing or concatenation)
+        combined_rep = torch.cat([sequence_output, cross_attended_output], dim=-1)
+        combined_rep = self.layer_norm(combined_rep)
+        combined_rep = self.dropout(combined_rep)
+
+        # Get subject-object representations for classification
+        sub_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(combined_rep, sub_idx)])
+        obj_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(combined_rep, obj_idx)])
+
+        # Final relation representation (sub-object interaction)
+        relation_rep = torch.cat((sub_output, obj_output), dim=1)
+
+        # Classify relation
+        logits = self.classifier(relation_rep)
+
+        if labels is not None:
+            loss_fct = nn.CrossEntropyLoss()
+            loss = loss_fct(logits.view(-1, self.classifier.out_features), labels.view(-1))
+            return loss
+        else:
+            return logits
