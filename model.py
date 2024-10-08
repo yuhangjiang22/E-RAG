@@ -47,6 +47,7 @@ class ERAG(PreTrainedModel):
         self.doc_linear = nn.Linear(hf_config.hidden_size * 3, hf_config.hidden_size)
         self.tokenizer_len = config.tokenizer_len
         self.alpha = nn.Parameter(torch.tensor(0.5))
+        self.beta = nn.Parameter(torch.tensor(0.5))
 
         self.input_encoder = AutoModel.from_pretrained(
             config.pretrained_model_name_or_path,
@@ -143,7 +144,7 @@ class ERAG(PreTrainedModel):
 
         # Normalize entropy to be between 0 and 1 (optional, for smoothness)
         max_entropy = torch.log(torch.tensor(self.num_labels, dtype=torch.float32))
-        normalized_entropy = logits_entropy / max_entropy
+        normalized_entropy = self.beta * logits_entropy / max_entropy
 
         # Define dynamic_alpha based on logits entropy (lower entropy = more decisive)
         dynamic_alpha = 1 - normalized_entropy  # if logits_entropy is low, dynamic_alpha will be high
