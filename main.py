@@ -12,7 +12,7 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 from torch.utils.data import DataLoader, TensorDataset
 from utils import generate_relation_data, decode_sample_id
 from const import task_rel_labels, task_ner_labels
-from model import ERAG, ERAGConfig
+from model import ERAG, ERAGWithCrossAttention, ERAGConfig
 
 class InputFeatures(object):
 
@@ -474,7 +474,10 @@ def main(args):
         if 'PubMedBERT' not in config.pretrained_model_name_or_path:
             config.tokenizer_len = len(tokenizer)
 
-        model = ERAG(config)
+        if args.cross_att:
+            model = ERAGWithCrossAttention(config)
+        else:
+            model = ERAG(config)
 
         model.to(device)
         if n_gpu > 1:
@@ -654,7 +657,7 @@ if __name__ == "__main__":
                         help="hidden drop out rate.")
     parser.add_argument('--num_docs', type=int, default=1)
     parser.add_argument("--document_path", default=None, type=str, help="The path to the relevant documents.")
-
+    parser.add_argument('--cross_att', action='store_true')
     args = parser.parse_args()
     main(args)
 
