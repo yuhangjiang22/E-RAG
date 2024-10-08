@@ -207,7 +207,7 @@ class ERAGWithCrossAttention(PreTrainedModel):
         self.documents_encoder = AutoModel.from_pretrained(config.pretrained_model_name_or_path, add_pooling_layer=False)
 
         self.cross_attention_layer = CrossAttentionLayer(hf_config.hidden_size)
-        self.layer_norm = nn.LayerNorm(hf_config.hidden_size)
+        self.layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)
 
