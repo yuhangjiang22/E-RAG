@@ -149,13 +149,14 @@ class ERAG(PreTrainedModel):
         dynamic_alpha = 1 - normalized_entropy  # if logits_entropy is low, dynamic_alpha will be high
 
         # Combine logits and doc_logits using dynamic_alpha
-        # combined_logits = dynamic_alpha.unsqueeze(1) * logits + (1 - dynamic_alpha.unsqueeze(1)) * doc_logits
-        combined_logits = doc_logits
+        combined_logits = dynamic_alpha.unsqueeze(1) * logits + (1 - dynamic_alpha.unsqueeze(1)) * doc_logits
+        # combined_logits = doc_logits
 
         if labels is not None:
             loss_fct = CrossEntropyLoss()
-            # loss = loss_fct(combined_logits.view(-1, self.num_labels), labels.view(-1))
-            loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+            loss1 = loss_fct(combined_logits.view(-1, self.num_labels), labels.view(-1))
+            loss2 = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+            loss = self.alpha * loss1 + (1 - self.alpha) * loss2
             return loss
         else:
-            return logits
+            return combined_logits
