@@ -194,7 +194,7 @@ class CrossAttentionLayer(nn.Module):
         return context_layer
 
 
-class ERAGWithCrossAttention(nn.Module):
+class ERAGWithCrossAttention(PreTrainedModel):
 
     config_class = ERAGConfig
 
