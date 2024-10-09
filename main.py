@@ -586,8 +586,10 @@ def main(args):
 
                 eval_dataloader = DataLoader(eval_data, batch_size=args.eval_batch_size)
                 eval_label_ids = all_label_ids
-
-            model = ERAG.from_pretrained(args.output_dir, num_labels=num_labels)
+            if args.cross_att:
+                model = ERAGWithCrossAttention.from_pretrained(args.output_dir, num_labels=num_labels)
+            else:
+                model = ERAG.from_pretrained(args.output_dir, num_labels=num_labels)
             model.to(device)
             preds, result = evaluate(model=model,
                                      device=device,
