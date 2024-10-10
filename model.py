@@ -210,6 +210,8 @@ class ERAGWithCrossAttention(PreTrainedModel):
         self.layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(hf_config.hidden_size * 4, config.num_labels)
+        self.pure_classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)
+        self.beta = nn.Parameter(torch.tensor(0.5))
 
     def forward(self,
                 input_ids: torch.LongTensor = None,
@@ -234,8 +236,16 @@ class ERAGWithCrossAttention(PreTrainedModel):
         )
         doc_sequence_output = doc_outputs.last_hidden_state
 
+        sub_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(sequence_output, sub_idx)])
+        obj_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(sequence_output, obj_idx)])
+        rep = torch.cat((sub_output, obj_output), dim=1)
+        rep = self.layer_norm(rep)
+        rep = self.dropout(rep)
+        pure_logits = self.pure_classifier(rep)
+
         # Cross-attention between input and document encoder outputs
         cross_attended_output = self.cross_attention_layer(sequence_output, doc_sequence_output)
+
 
         # Combine representations (e.g., by summing or concatenation)
         combined_rep = torch.cat([sequence_output, cross_attended_output], dim=-1)
@@ -252,9 +262,25 @@ class ERAGWithCrossAttention(PreTrainedModel):
         # Classify relation
         logits = self.classifier(relation_rep)
 
+        logits_probs = F.softmax(pure_logits, dim=-1)
+
+        # Compute entropy of logits to measure how "decisive" they are
+        logits_entropy = -torch.sum(logits_probs * torch.log(logits_probs + 1e-12), dim=-1)
+
+        # Normalize entropy to be between 0 and 1 (optional, for smoothness)
+        max_entropy = torch.log(torch.tensor(self.num_labels, dtype=torch.float32))
+        normalized_entropy = self.beta * logits_entropy / max_entropy
+
+        # Define dynamic_alpha based on logits entropy (lower entropy = more decisive)
+        dynamic_alpha = 1 - normalized_entropy  # if logits_entropy is low, dynamic_alpha will be high
+
+        # Combine logits and doc_logits using dynamic_alpha
+        combined_logits = dynamic_alpha.unsqueeze(1) * pure_logits + (1 - dynamic_alpha.unsqueeze(1)) * logits
+
         if labels is not None:
             loss_fct = nn.CrossEntropyLoss()
-            loss = loss_fct(logits.view(-1, self.classifier.out_features), labels.view(-1))
+            # loss = loss_fct(logits.view(-1, self.classifier.out_features), labels.view(-1))
+            loss = loss_fct(combined_logits.view(-1, self.num_labels), labels.view(-1))
             return loss
         else:
-            return logits
+            return combined_logits
