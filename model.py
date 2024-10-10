@@ -157,7 +157,7 @@ class ERAG(PreTrainedModel):
             loss1 = loss_fct(combined_logits.view(-1, self.num_labels), labels.view(-1))
             loss2 = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
             loss = self.alpha * loss1 + (1 - self.alpha) * loss2
-            return loss
+            return loss1
         else:
             return combined_logits
 
