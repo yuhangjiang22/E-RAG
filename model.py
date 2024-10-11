@@ -212,6 +212,7 @@ class ERAGWithCrossAttention(PreTrainedModel):
         self.classifier = nn.Linear(hf_config.hidden_size * 4, config.num_labels)
         self.pure_classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)
         self.beta = nn.Parameter(torch.tensor(0.5))
+        self.num_labels = config.num_labels
 
     def forward(self,
                 input_ids: torch.LongTensor = None,
