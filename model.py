@@ -346,17 +346,26 @@ class ERAGWithDocumentAttention(PreTrainedModel):
             nn.Sigmoid()  # Output relevance score between 0 and 1
         )
 
-    def forward(self, input_ids, attention_mask, token_type_ids, doc_input_ids, doc_input_mask, doc_type_ids, sub_idx,
-                obj_idx, labels=None):
+    def forward(self,
+                input_ids: torch.LongTensor = None,
+                attention_mask: torch.Tensor = None,
+                token_type_ids: torch.Tensor = None,
+                labels=None,
+                sub_idx=None,
+                obj_idx=None,
+                doc_input_ids: torch.LongTensor = None,
+                doc_input_mask: torch.Tensor = None,
+                doc_type_ids: torch.Tensor = None,
+                return_dict: bool = None,):
         # Encode input text
         input_outputs = self.input_encoder(
-            input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, return_dict=True
+            input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, return_dict=return_dict
         )
         sequence_output = input_outputs.last_hidden_state
 
         # Encode documents
         doc_outputs = self.documents_encoder(
-            doc_input_ids, attention_mask=doc_input_mask, token_type_ids=doc_type_ids, return_dict=True
+            doc_input_ids, attention_mask=doc_input_mask, token_type_ids=doc_type_ids, return_dict=return_dict
         )
         doc_sequence_output = doc_outputs.last_hidden_state
 
