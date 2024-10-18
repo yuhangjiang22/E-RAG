@@ -12,7 +12,7 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 from torch.utils.data import DataLoader, TensorDataset
 from utils import generate_relation_data, decode_sample_id
 from const import task_rel_labels, task_ner_labels
-from model import ERAG, ERAGWithCrossAttention, ERAGWithDocumentAttention, ERAGConfig
+from model import ERAG, ERAGWithCrossAttention, ERAGWithDocumentAttention, ERAGWithDocumentMHAttention, ERAGConfig
 
 class InputFeatures(object):
 
@@ -476,8 +476,8 @@ def main(args):
 
         if args.cross_att:
             model = ERAGWithCrossAttention(config)
-        elif args.doc_att:
-            model = ERAGWithDocumentAttention(config)
+        elif args.doc_mhatt:
+            model = ERAGWithDocumentMHAttention(config)
         else:
             model = ERAG(config)
 
@@ -590,8 +590,8 @@ def main(args):
                 eval_label_ids = all_label_ids
             if args.cross_att:
                 model = ERAGWithCrossAttention.from_pretrained(args.output_dir, num_labels=num_labels)
-            elif args.doc_att:
-                model = ERAGWithDocumentAttention.from_pretrained(args.output_dir, num_labels=num_labels)
+            elif args.doc_mhatt:
+                model = ERAGWithDocumentMHAttention.from_pretrained(args.output_dir, num_labels=num_labels)
             else:
                 model = ERAG.from_pretrained(args.output_dir, num_labels=num_labels)
             model.to(device)
@@ -665,6 +665,7 @@ if __name__ == "__main__":
     parser.add_argument("--document_path", default=None, type=str, help="The path to the relevant documents.")
     parser.add_argument('--cross_att', action='store_true')
     parser.add_argument('--doc_att', action='store_true')
+    parser.add_argument('--doc_mhatt', action='store_true')
     args = parser.parse_args()
     main(args)
 
