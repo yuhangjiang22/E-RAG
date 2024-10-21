@@ -572,7 +572,7 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
             doc_loss = loss_fct(doc_logits.view(-1, self.doc_classifier.out_features), labels.view(-1))
 
             # Total loss (using the dynamic relevance score to weigh input and document losses)
-            # loss = dynamic_relevance_score * doc_loss + (1 - dynamic_relevance_score) * input_loss + combined_loss
-            return combined_loss
+            loss = dynamic_relevance_score * doc_loss + (1 - dynamic_relevance_score) * input_loss + combined_loss
+            return loss
         else:
             return combined_logits
