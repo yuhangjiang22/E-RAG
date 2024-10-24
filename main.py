@@ -653,7 +653,7 @@ if __name__ == "__main__":
     parser.add_argument("--prediction_file", type=str, default="predictions.json",
                         help="The prediction filename for the relation model")
     parser.add_argument('--task', type=str, default=None, required=True,
-                        choices=['scierc', 'chemprot', 'chemprot_5', 'biored'])
+                        choices=['scierc', 'chemprot', 'chemprot_5', 'biored', 'cdr'])
     parser.add_argument('--context_window', type=int, default=0)
     parser.add_argument('--add_new_tokens', action='store_true',
                         help="Whether to add new tokens as marker tokens instead of using [unusedX] tokens.")

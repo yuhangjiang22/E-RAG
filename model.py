@@ -157,9 +157,9 @@ class ERAG(PreTrainedModel):
             loss1 = loss_fct(combined_logits.view(-1, self.num_labels), labels.view(-1))
             loss2 = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
             loss = self.alpha * loss1 + (1 - self.alpha) * loss2
-            return loss1
+            return loss2
         else:
-            return combined_logits
+            return logits
 
 
 class CrossAttentionLayer(nn.Module):
@@ -568,11 +568,11 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
             # Loss calculation
             loss_fct = nn.CrossEntropyLoss()
             combined_loss = loss_fct(combined_logits.view(-1, self.combined_classifier.out_features), labels.view(-1))
-            input_loss = loss_fct(input_logits.view(-1, self.input_classifier.out_features), labels.view(-1))
-            doc_loss = loss_fct(doc_logits.view(-1, self.doc_classifier.out_features), labels.view(-1))
+            # input_loss = loss_fct(input_logits.view(-1, self.input_classifier.out_features), labels.view(-1))
+            # doc_loss = loss_fct(doc_logits.view(-1, self.doc_classifier.out_features), labels.view(-1))
 
             # Total loss (using the dynamic relevance score to weigh input and document losses)
-            loss = dynamic_relevance_score * doc_loss + (1 - dynamic_relevance_score) * input_loss + combined_loss
-            return loss
+            # loss = dynamic_relevance_score * doc_loss + (1 - dynamic_relevance_score) * input_loss + combined_loss
+            return combined_loss
         else:
             return combined_logits

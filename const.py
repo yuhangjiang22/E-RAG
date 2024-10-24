@@ -6,7 +6,8 @@ task_ner_labels = {
     'chemprot_5': ['CHEMICAL', 'GENE'],
     'biored': ['DiseaseOrPhenotypicFeature', 'SequenceVariant', 'GeneOrGeneProduct', 'ChemicalEntity'],
     'semeval': ['obj', 'sub'],
-    'ddi': ["DRUG", "BRAND", "GROUP", "DRUG_N"]
+    'ddi': ["DRUG", "BRAND", "GROUP", "DRUG_N"],
+    'cdr': ['disease', 'chemical']
 }
 
 task_rel_labels = {
@@ -22,7 +23,8 @@ task_rel_labels = {
     'biored': ['Positive_Correlation', 'Negative_Correlation', 'Association', 'Bind', 'Drug_Interaction', 'Cotreatment', 'Comparison', 'Conversion'],
     'semeval': ['Cause-Effect', 'Instrument-Agency', 'Product-Producer', 'Content-Container', 'Entity-Origin', 'Entity-Destination',
                 'Component-Whole', 'Member-Collection', 'Message-Topic'],
-    'ddi': ['EFFECT', 'INT', 'MECHANISM', 'ADVISE']
+    'ddi': ['EFFECT', 'INT', 'MECHANISM', 'ADVISE'],
+    'cdr': ['Inducement']
 }
 
 def get_labelmap(label_list):
