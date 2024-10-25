@@ -378,7 +378,7 @@ def main(args):
 
     config = ERAGConfig(pretrained_model_name_or_path=args.model,
                         hidden_dropout_prob=0.1,
-                        num_labels=6,
+                        num_labels=num_labels,
                         )
 
     tokenizer = AutoTokenizer.from_pretrained(args.model, do_lower_case=args.do_lower_case)
