@@ -478,6 +478,8 @@ def main(args):
             model = ERAGWithCrossAttention(config)
         elif args.doc_mhatt:
             model = ERAGWithDocumentMHAttention(config)
+        elif args.doc_att:
+            model = ERAGWithDocumentAttention(config)
         else:
             model = ERAG(config)
 
