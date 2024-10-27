@@ -594,6 +594,8 @@ def main(args):
                 model = ERAGWithCrossAttention.from_pretrained(args.output_dir, num_labels=num_labels)
             elif args.doc_mhatt:
                 model = ERAGWithDocumentMHAttention.from_pretrained(args.output_dir, num_labels=num_labels)
+            elif args.doc_att:
+                model = ERAGWithDocumentAttention.from_pretrained(args.output_dir, num_labels=num_labels)
             else:
                 model = ERAG.from_pretrained(args.output_dir, num_labels=num_labels)
             model.to(device)
