@@ -533,10 +533,14 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
         input_cls_rep = sequence_output[:, 0, :]  # batch_size x hidden_size
 
         num_docs = doc_sequence_output.size(0)/batch_size
-
+        # batch_size x num_docs x seq_len x hidden_size
         doc_sequence_output = doc_sequence_output.view(batch_size, num_docs, seq_len, hidden_size)
+
+        doc_input_mask = doc_input_mask.view(batch_size, num_docs, seq_len)
+        # batch_size x num_docs * seq_len x hidden_size
         doc_sequence_output = doc_sequence_output.view(batch_size, seq_len * num_docs, hidden_size)
 
+        doc_input_mask = doc_input_mask.view(batch_size, seq_len * num_docs)
         # Compute the attention-weighted document representation
         attended_doc_rep, attention_probs = self.document_attention(input_cls_rep, doc_sequence_output,
                                                                     doc_mask=doc_input_mask)
