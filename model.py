@@ -482,6 +482,7 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
         super(ERAGWithDocumentMHAttention, self).__init__(config)
 
         hf_config = AutoConfig.from_pretrained(config.pretrained_model_name_or_path)
+        self.hf_config = hf_config
 
         self.input_encoder = AutoModel.from_pretrained(config.pretrained_model_name_or_path, add_pooling_layer=False)
         self.documents_encoder = AutoModel.from_pretrained(config.pretrained_model_name_or_path, add_pooling_layer=False)
@@ -520,6 +521,7 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
             input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, return_dict=return_dict
         )
         sequence_output = input_outputs.last_hidden_state
+        batch_size, seq_len, hidden_size = sequence_output.shape
 
         # Encode documents
         doc_outputs = self.documents_encoder(
@@ -529,6 +531,11 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
 
         # Use attention to weight the document's relevance dynamically
         input_cls_rep = sequence_output[:, 0, :]  # batch_size x hidden_size
+
+        num_docs = doc_sequence_output.size(0)/batch_size
+
+        doc_sequence_output = doc_sequence_output.view(batch_size, num_docs, seq_len, hidden_size)
+        doc_sequence_output = doc_sequence_output.view(batch_size, seq_len * num_docs, hidden_size)
 
         # Compute the attention-weighted document representation
         attended_doc_rep, attention_probs = self.document_attention(input_cls_rep, doc_sequence_output,

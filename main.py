@@ -132,14 +132,39 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
         documents = [i['content'] for i in documents]
         return documents
 
+    def get_doc_tokens(doc):
+        doc_max_tokens = 0
+        doc_tokens = [CLS]
+        doc = doc.split()
+        for token in doc:
+            for sub_token in tokenizer.tokenize(token):
+                doc_tokens.append(sub_token)
+        doc_tokens.append(SEP)
+        doc_max_tokens = max(doc_max_tokens, len(doc_tokens))
+        if len(doc_tokens) > doc_max_tokens:
+            docs_tokens = doc_tokens[:doc_max_tokens]
+        doc_tokens.append(SEP)
+
+        doc_segment_ids = [0] * len(docs_tokens)
+        doc_input_ids = tokenizer.convert_tokens_to_ids(docs_tokens)
+        doc_input_mask = [1] * len(doc_input_ids)
+        padding = [0] * (max_seq_length - len(doc_input_ids))
+        doc_input_ids += padding
+        doc_input_mask += padding
+        doc_segment_ids += padding
+        assert len(doc_input_ids) == max_seq_length
+        assert len(doc_input_mask) == max_seq_length
+        assert len(doc_segment_ids) == max_seq_length
+
+        return doc_input_ids, doc_input_mask, doc_segment_ids
+
     max_seq_length = args.max_seq_length
     num_tokens = 0
     max_tokens = 0
     num_fit_examples = 0
     num_shown_examples = 0
     features = []
-    doc_num_tokens = 0
-    doc_max_tokens = 0
+
     for (ex_index, example) in enumerate(examples):
         if ex_index % 10000 == 0:
             logger.info("Writing example %d of %d" % (ex_index, len(examples)))
@@ -194,27 +219,14 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
         subj = ' '.join(example['token'][example['subj_start']:example['subj_end'] + 1])
         obj = ' '.join(example['token'][example['obj_start']:example['obj_end'] + 1])
         docs = get_documents(f'{subj}|{obj}', documents, args)
-        docs_tokens = [CLS]
-        docs = ' '.join(docs).split()
-        for token in docs:
-            for sub_token in tokenizer.tokenize(token):
-                docs_tokens.append(sub_token)
-        docs_tokens.append(SEP)
-        doc_max_tokens = max(doc_max_tokens, len(docs_tokens))
 
-        if len(docs_tokens) > max_seq_length:
-            docs_tokens = docs_tokens[:max_seq_length]
+        docs_input_ids, docs_input_mask, docs_segment_ids = [], [], []
 
-        doc_segment_ids = [0] * len(docs_tokens)
-        doc_input_ids = tokenizer.convert_tokens_to_ids(docs_tokens)
-        doc_input_mask = [1] * len(doc_input_ids)
-        padding = [0] * (max_seq_length - len(doc_input_ids))
-        doc_input_ids += padding
-        doc_input_mask += padding
-        doc_segment_ids += padding
-        assert len(doc_input_ids) == max_seq_length
-        assert len(doc_input_mask) == max_seq_length
-        assert len(doc_segment_ids) == max_seq_length
+        for doc in docs:
+            doc_input_ids, doc_input_mask, doc_segment_ids = get_doc_tokens(doc)
+            docs_input_ids.append(doc_input_ids)
+            docs_input_mask.append(doc_input_mask)
+            docs_segment_ids.append(doc_segment_ids)
 
         if num_shown_examples < 20:
             if (ex_index < 5) or (label_id > 0):
@@ -236,9 +248,9 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
                               label_id=label_id,
                               sub_idx=sub_idx,
                               obj_idx=obj_idx,
-                              doc_input_ids=doc_input_ids,
-                              doc_input_mask=doc_input_mask,
-                              doc_segment_ids=doc_segment_ids))
+                              doc_input_ids=docs_input_ids,
+                              doc_input_mask=docs_input_mask,
+                              doc_segment_ids=docs_segment_ids))
     logger.info("Average #tokens: %.2f" % (num_tokens * 1.0 / len(examples)))
     logger.info("Max #tokens: %d"%max_tokens)
     logger.info("%d (%.2f %%) examples can fit max_seq_length = %d" % (num_fit_examples,
@@ -255,9 +267,15 @@ def evaluate(model, device, eval_dataloader, eval_label_ids):
         segment_ids = segment_ids.to(device)
         sub_idx = sub_idx.to(device)
         obj_idx = obj_idx.to(device)
+
         doc_input_ids = doc_input_ids.to(device)
         doc_input_mask = doc_input_mask.to(device)
         doc_type_ids = doc_type_ids.to(device)
+
+        batch_size, num_docs, doc_seq_length = doc_input_ids.size()
+        doc_input_ids = doc_input_ids.reshape(batch_size * num_docs, doc_seq_length)
+        doc_input_mask = doc_input_mask.reshape(batch_size * num_docs, doc_seq_length)
+        doc_segment_ids = doc_segment_ids.reshape(batch_size * num_docs, doc_seq_length)
 
         with torch.no_grad():
             logits = model(input_ids,
@@ -515,6 +533,11 @@ def main(args):
                 # batch_size, _ = batch[0].size()
                 batch = tuple(t.to(device) for t in batch)
                 input_ids, input_mask, segment_ids, label_ids, sub_idx, obj_idx, doc_input_ids, doc_input_mask, doc_segment_ids = batch
+                batch_size, num_docs, doc_seq_length = doc_input_ids.size()
+
+                doc_input_ids = doc_input_ids.reshape(batch_size * num_docs, doc_seq_length)
+                doc_input_mask = doc_input_mask.reshape(batch_size * num_docs, doc_seq_length)
+                doc_segment_ids = doc_segment_ids.reshape(batch_size * num_docs, doc_seq_length)
 
                 loss = model(input_ids, input_mask, segment_ids, label_ids,
                              sub_idx, obj_idx, doc_input_ids, doc_input_mask, doc_segment_ids, return_dict=True)
