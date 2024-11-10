@@ -219,6 +219,7 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
         obj = ' '.join(example['token'][example['obj_start']:example['obj_end'] + 1])
         docs = get_documents(f'{subj}|{obj}', documents, args)
 
+
         docs_input_ids, docs_input_mask, docs_segment_ids = [], [], []
 
         for doc in docs:
