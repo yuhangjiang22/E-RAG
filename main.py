@@ -217,7 +217,10 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
 
         subj = ' '.join(example['token'][example['subj_start']:example['subj_end'] + 1])
         obj = ' '.join(example['token'][example['obj_start']:example['obj_end'] + 1])
-        docs = get_documents(f'{subj}|{obj}', documents, args)
+        if 'pair' in args.document_path:
+            docs = get_documents(f'{subj}|{obj}', documents, args)
+        else:
+            docs = get_documents(subj, documents, args) + get_documents(obj, documents, args)
 
         docs_input_ids, docs_input_mask, docs_segment_ids = [], [], []
 
@@ -692,6 +695,8 @@ if __name__ == "__main__":
     parser.add_argument('--cross_att', action='store_true')
     parser.add_argument('--doc_att', action='store_true')
     parser.add_argument('--doc_mhatt', action='store_true')
+    # parser.add_argument('--doc_type', type=str, default=None, required=True,
+                        # choices=['doc', 'doc_pair'])
     args = parser.parse_args()
     main(args)
 
