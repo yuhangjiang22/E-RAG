@@ -142,11 +142,10 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
         doc_tokens.append(SEP)
         doc_max_tokens = max(doc_max_tokens, len(doc_tokens))
         if len(doc_tokens) > doc_max_tokens:
-            docs_tokens = doc_tokens[:doc_max_tokens]
-        doc_tokens.append(SEP)
+            doc_tokens = doc_tokens[:doc_max_tokens]
 
-        doc_segment_ids = [0] * len(docs_tokens)
-        doc_input_ids = tokenizer.convert_tokens_to_ids(docs_tokens)
+        doc_segment_ids = [0] * len(doc_tokens)
+        doc_input_ids = tokenizer.convert_tokens_to_ids(doc_tokens)
         doc_input_mask = [1] * len(doc_input_ids)
         padding = [0] * (max_seq_length - len(doc_input_ids))
         doc_input_ids += padding
