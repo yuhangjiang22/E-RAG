@@ -133,15 +133,14 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
         return documents
 
     def get_doc_tokens(doc):
-        doc_max_tokens = 0
         doc_tokens = [CLS]
         doc = doc.split()
         for token in doc:
             for sub_token in tokenizer.tokenize(token):
                 doc_tokens.append(sub_token)
         doc_tokens.append(SEP)
-        doc_max_tokens = max(doc_max_tokens, len(doc_tokens))
-        if len(doc_tokens) > doc_max_tokens:
+        # doc_max_tokens = max(doc_max_tokens, len(doc_tokens))
+        if len(doc_tokens) > max_seq_length:
             doc_tokens = doc_tokens[:doc_max_tokens]
 
         doc_segment_ids = [0] * len(doc_tokens)
@@ -162,6 +161,7 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
     max_tokens = 0
     num_fit_examples = 0
     num_shown_examples = 0
+    doc_max_tokens = 0
     features = []
 
     for (ex_index, example) in enumerate(examples):
@@ -218,7 +218,6 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
         subj = ' '.join(example['token'][example['subj_start']:example['subj_end'] + 1])
         obj = ' '.join(example['token'][example['obj_start']:example['obj_end'] + 1])
         docs = get_documents(f'{subj}|{obj}', documents, args)
-
 
         docs_input_ids, docs_input_mask, docs_segment_ids = [], [], []
 
