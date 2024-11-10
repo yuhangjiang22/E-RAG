@@ -277,7 +277,7 @@ def evaluate(model, device, eval_dataloader, eval_label_ids):
         batch_size, num_docs, doc_seq_length = doc_input_ids.size()
         doc_input_ids = doc_input_ids.reshape(batch_size * num_docs, doc_seq_length)
         doc_input_mask = doc_input_mask.reshape(batch_size * num_docs, doc_seq_length)
-        doc_segment_ids = doc_segment_ids.reshape(batch_size * num_docs, doc_seq_length)
+        doc_type_ids = doc_type_ids.reshape(batch_size * num_docs, doc_seq_length)
 
         with torch.no_grad():
             logits = model(input_ids,
