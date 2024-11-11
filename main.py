@@ -544,9 +544,8 @@ def main(args):
                 doc_input_mask = doc_input_mask.reshape(batch_size * num_docs, doc_seq_length)
                 doc_segment_ids = doc_segment_ids.reshape(batch_size * num_docs, doc_seq_length)
 
-                loss, logits = model(input_ids, input_mask, segment_ids, label_ids,
+                loss = model(input_ids, input_mask, segment_ids, label_ids,
                              sub_idx, obj_idx, doc_input_ids, doc_input_mask, doc_segment_ids, return_dict=True)
-                logger.info('model logits: {}'.format(logits))
                 logger.info('loss: {}'.format(loss))
                 if n_gpu > 1:
                     loss = loss.mean()
