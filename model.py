@@ -488,7 +488,7 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
         self.documents_encoder = AutoModel.from_pretrained(config.pretrained_model_name_or_path, add_pooling_layer=False)
 
         # self.document_attention = MultiHeadDocumentAttention(hf_config.hidden_size, 12)
-        self.documents_attention = DocumentAttention(hf_config.hidden_size)
+        self.document_attention = DocumentAttention(hf_config.hidden_size)
         self.layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
         self.combined_rep_layer_norm = nn.LayerNorm(hf_config.hidden_size * 3)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
