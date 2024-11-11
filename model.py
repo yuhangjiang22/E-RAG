@@ -579,6 +579,7 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
             # Loss calculation
             loss_fct = nn.CrossEntropyLoss()
             combined_loss = loss_fct(combined_logits.view(-1, self.combined_classifier.out_features), labels.view(-1))
+            print(combined_loss)
             # input_loss = loss_fct(input_logits.view(-1, self.input_classifier.out_features), labels.view(-1))
             # doc_loss = loss_fct(doc_logits.view(-1, self.doc_classifier.out_features), labels.view(-1))
 
