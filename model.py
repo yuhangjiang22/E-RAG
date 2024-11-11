@@ -542,16 +542,16 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
         num_docs = int(doc_sequence_output.size(0) / batch_size)
         # logger.info('num_docs: {}'.format(num_docs))
         # batch_size x num_docs x seq_len x hidden_size
-        logger.info('doc_sequence_output shape1: {}'.format(doc_sequence_output.shape))
+        # logger.info('doc_sequence_output shape1: {}'.format(doc_sequence_output.shape))
         doc_sequence_output = doc_sequence_output.view(batch_size, num_docs, seq_len, hidden_size)
-        logger.info('doc_sequence_output shape2: {}'.format(doc_sequence_output.shape))
+        # logger.info('doc_sequence_output shape2: {}'.format(doc_sequence_output.shape))
         # logger.info('doc_sequence_output: {}'.format(doc_sequence_output))
 
         doc_input_mask = doc_input_mask.view(batch_size, num_docs, seq_len)
         # logger.info('doc_input_mask: {}'.format(doc_input_mask))
         # batch_size x num_docs * seq_len x hidden_size
         doc_sequence_output = doc_sequence_output.view(batch_size, seq_len * num_docs, hidden_size)
-        logger.info('doc_sequence_output shape3: {}'.format(doc_sequence_output.shape))
+        # logger.info('doc_sequence_output shape3: {}'.format(doc_sequence_output.shape))
         # logger.info('doc_sequence_output: {}'.format(doc_sequence_output))
 
         doc_input_mask = doc_input_mask.view(batch_size, seq_len * num_docs)
