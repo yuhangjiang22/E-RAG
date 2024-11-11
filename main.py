@@ -141,7 +141,7 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
         doc_tokens.append(SEP)
         # doc_max_tokens = max(doc_max_tokens, len(doc_tokens))
         if len(doc_tokens) > max_seq_length:
-            doc_tokens = doc_tokens[:doc_max_tokens]
+            doc_tokens = doc_tokens[:max_seq_length]
 
         doc_segment_ids = [0] * len(doc_tokens)
         doc_input_ids = tokenizer.convert_tokens_to_ids(doc_tokens)
@@ -153,6 +153,7 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
         assert len(doc_input_ids) == max_seq_length
         assert len(doc_input_mask) == max_seq_length
         assert len(doc_segment_ids) == max_seq_length
+        assert doc_input_ids[0] == 2
 
         return doc_input_ids, doc_input_mask, doc_segment_ids
 
@@ -480,6 +481,7 @@ def main(args):
                                   all_doc_input_ids,
                                   all_doc_input_mask,
                                   all_doc_segment_ids,)
+
         train_dataloader = DataLoader(train_data, batch_size=args.train_batch_size)
         train_batches = [batch for batch in train_dataloader]
         num_train_optimization_steps = len(train_dataloader) * args.num_train_epochs
