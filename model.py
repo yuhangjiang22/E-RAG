@@ -600,6 +600,6 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
 
             # Total loss (using the dynamic relevance score to weigh input and document losses)
             # loss = dynamic_relevance_score * doc_loss + (1 - dynamic_relevance_score) * input_loss + combined_loss
-            return combined_loss, combined_logits
+            return combined_loss
         else:
             return combined_logits
