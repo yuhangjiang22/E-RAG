@@ -487,7 +487,8 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
         self.input_encoder = AutoModel.from_pretrained(config.pretrained_model_name_or_path, add_pooling_layer=False)
         self.documents_encoder = AutoModel.from_pretrained(config.pretrained_model_name_or_path, add_pooling_layer=False)
 
-        self.document_attention = MultiHeadDocumentAttention(hf_config.hidden_size, 12)
+        # self.document_attention = MultiHeadDocumentAttention(hf_config.hidden_size, 12)
+        self.documents_attention = DocumentAttention(hf_config.hidden_size)
         self.layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
         self.combined_rep_layer_norm = nn.LayerNorm(hf_config.hidden_size * 3)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
@@ -579,7 +580,6 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
             # Loss calculation
             loss_fct = nn.CrossEntropyLoss()
             combined_loss = loss_fct(combined_logits.view(-1, self.combined_classifier.out_features), labels.view(-1))
-            print(combined_loss)
             # input_loss = loss_fct(input_logits.view(-1, self.input_classifier.out_features), labels.view(-1))
             # doc_loss = loss_fct(doc_logits.view(-1, self.doc_classifier.out_features), labels.view(-1))
 
