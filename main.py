@@ -547,6 +547,7 @@ def main(args):
                 loss = model(input_ids, input_mask, segment_ids, label_ids,
                              sub_idx, obj_idx, doc_input_ids, doc_input_mask, doc_segment_ids, return_dict=True)
 
+                logger.info('loss: {}'.format(loss))
                 if n_gpu > 1:
                     loss = loss.mean()
 
@@ -560,7 +561,7 @@ def main(args):
                 scheduler.step()
                 optimizer.zero_grad()
                 global_step += 1
-                print('tr_loss: ', tr_loss)
+                logger.info('tr_loss: {}'.format(tr_loss))
 
                 if (step + 1) % eval_step == 0:
                     logger.info('Epoch: {}, Step: {} / {}, used_time = {:.2f}s, loss = {:.6f}'.format(
