@@ -560,6 +560,7 @@ def main(args):
                 scheduler.step()
                 optimizer.zero_grad()
                 global_step += 1
+                print('tr_loss: ', tr_loss)
 
                 if (step + 1) % eval_step == 0:
                     logger.info('Epoch: {}, Step: {} / {}, used_time = {:.2f}s, loss = {:.6f}'.format(
