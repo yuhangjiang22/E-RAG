@@ -2,10 +2,16 @@ import torch
 from torch import nn
 import numpy as np
 from typing import List
+import logging
 from transformers import PreTrainedModel, AutoConfig, AutoModel
 from transformers import PretrainedConfig
 from torch.nn import CrossEntropyLoss
 import torch.nn.functional as F
+
+logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+                    datefmt='%m/%d/%Y %H:%M:%S',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 BertLayerNorm = torch.nn.LayerNorm
 
@@ -534,17 +540,23 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
         input_cls_rep = sequence_output[:, 0, :]  # batch_size x hidden_size
 
         num_docs = int(doc_sequence_output.size(0) / batch_size)
+        logger.info('num_docs: {}'.format(num_docs))
         # batch_size x num_docs x seq_len x hidden_size
         doc_sequence_output = doc_sequence_output.view(batch_size, num_docs, seq_len, hidden_size)
+        logger.info('doc_sequence_output: {}'.format(doc_sequence_output))
 
         doc_input_mask = doc_input_mask.view(batch_size, num_docs, seq_len)
+        logger.info('doc_input_mask: {}'.format(doc_input_mask))
         # batch_size x num_docs * seq_len x hidden_size
         doc_sequence_output = doc_sequence_output.view(batch_size, seq_len * num_docs, hidden_size)
+        logger.info('doc_sequence_output: {}'.format(doc_sequence_output))
 
         doc_input_mask = doc_input_mask.view(batch_size, seq_len * num_docs)
+        logger.info('doc_input_mask: {}'.format(doc_input_mask))
         # Compute the attention-weighted document representation
         attended_doc_rep, attention_probs = self.document_attention(input_cls_rep, doc_sequence_output,
                                                                     doc_mask=doc_input_mask)
+        logger.info('attended_doc_rep: {}'.format(attended_doc_rep))
 
         # Get subject-object representations for input
         sub_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(sequence_output, sub_idx)])
