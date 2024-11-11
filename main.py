@@ -546,7 +546,7 @@ def main(args):
 
                 loss = model(input_ids, input_mask, segment_ids, label_ids,
                              sub_idx, obj_idx, doc_input_ids, doc_input_mask, doc_segment_ids, return_dict=True)
-
+                logger.info('model logits: {}'.format(model.combined_logits))
                 logger.info('loss: {}'.format(loss))
                 if n_gpu > 1:
                     loss = loss.mean()
