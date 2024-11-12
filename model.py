@@ -493,8 +493,8 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
         self.input_encoder = AutoModel.from_pretrained(config.pretrained_model_name_or_path, add_pooling_layer=False)
         self.documents_encoder = AutoModel.from_pretrained(config.pretrained_model_name_or_path, add_pooling_layer=False)
 
-        self.document_attention = MultiHeadDocumentAttention(hf_config.hidden_size, 12)
-        # self.document_attention = DocumentAttention(hf_config.hidden_size)
+        # self.document_attention = MultiHeadDocumentAttention(hf_config.hidden_size, 12)
+        self.document_attention = DocumentAttention(hf_config.hidden_size)
         self.layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
         self.combined_rep_layer_norm = nn.LayerNorm(hf_config.hidden_size * 3)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
@@ -540,26 +540,13 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
         input_cls_rep = sequence_output[:, 0, :]  # batch_size x hidden_size
 
         num_docs = int(doc_sequence_output.size(0) / batch_size)
-        # logger.info('num_docs: {}'.format(num_docs))
-        # batch_size x num_docs x seq_len x hidden_size
-        # logger.info('doc_sequence_output shape1: {}'.format(doc_sequence_output.shape))
         doc_sequence_output = doc_sequence_output.view(batch_size, num_docs, seq_len, hidden_size)
-        # logger.info('doc_sequence_output shape2: {}'.format(doc_sequence_output.shape))
-        # logger.info('doc_sequence_output: {}'.format(doc_sequence_output))
-
         doc_input_mask = doc_input_mask.view(batch_size, num_docs, seq_len)
-        # logger.info('doc_input_mask: {}'.format(doc_input_mask))
-        # batch_size x num_docs * seq_len x hidden_size
         doc_sequence_output = doc_sequence_output.view(batch_size, seq_len * num_docs, hidden_size)
-        # logger.info('doc_sequence_output shape3: {}'.format(doc_sequence_output.shape))
-        # logger.info('doc_sequence_output: {}'.format(doc_sequence_output))
 
         doc_input_mask = doc_input_mask.view(batch_size, seq_len * num_docs)
-        # logger.info('doc_input_mask: {}'.format(doc_input_mask))
-        # Compute the attention-weighted document representation
         attended_doc_rep, attention_probs = self.document_attention(input_cls_rep, doc_sequence_output,
                                                                     doc_mask=doc_input_mask)
-        logger.info('attended_doc_rep: {}'.format(attended_doc_rep))
 
         # Get subject-object representations for input
         sub_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(sequence_output, sub_idx)])
