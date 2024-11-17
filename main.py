@@ -14,6 +14,13 @@ from utils import generate_relation_data, decode_sample_id
 from const import task_rel_labels, task_ner_labels
 from model import ERAG, ERAGWithCrossAttention, ERAGWithDocumentAttention, ERAGWithDocumentMHAttention, ERAGConfig
 
+biored_type_map = {
+    'DiseaseOrPhenotypicFeature': 'disease',
+    'SequenceVariant': 'variant',
+    'GeneOrGeneProduct': 'gene',
+    'ChemicalEntity': 'drug'
+}
+
 class InputFeatures(object):
 
     def __init__(self,
@@ -123,14 +130,14 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
             curr_key = el[key_type]
             if curr_key == entity:
                 if args.task == 'biored':
-                    if el['type'] == type:
+                    if el['type'] == biored_type_map[type]:
                         found = True
                         break
                 else:
                     found = True
                     break
         if not found:
-            logger.info('No relevant documents found for {} with type {}'.format(entity, type))
+            logger.info('No relevant documents found for {} with type {}'.format(entity, biored_type_map[type]))
             return []
 
         documents = el['texts'][:num_docs]
