@@ -112,7 +112,7 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
                 special_tokens[w] = ('<' + w + '>').lower()
         return special_tokens[w]
 
-    def get_documents(entity, documents, args):
+    def get_documents(entity, documents, args, type=None):
         num_docs = args.num_docs
         if 'entity' in documents[0]:
             key_type = 'entity'
@@ -122,10 +122,15 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
         for el in documents:
             curr_key = el[key_type]
             if curr_key == entity:
-                found = True
-                break
+                if args.task == 'biored':
+                    if el['type'] == type:
+                        found = True
+                        break
+                else:
+                    found = True
+                    break
         if not found:
-            print('No relevant documents found for entity', entity)
+            logger.info('No relevant documents found for {} with type {}'.format(entity, type))
             return []
 
         documents = el['texts'][:num_docs]
@@ -221,7 +226,7 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
         if 'pair' in args.document_path:
             docs = get_documents(f'{subj}|{obj}', documents, args)
         else:
-            docs = get_documents(subj, documents, args) + get_documents(obj, documents, args)
+            docs = get_documents(subj, documents, args, example['subj_type']) + get_documents(obj, documents, args, example['obj_type'])
 
         docs_input_ids, docs_input_mask, docs_segment_ids = [], [], []
 

@@ -126,23 +126,36 @@ def generate_relation_data(entity_data, context_window=0, task=None):
 
                             sent_samples.append(sample)
 
-                    if task == 'ddi':
-                        # if type_pair in biored_entity_pairs: # This task is only for BioRED
-                        if [sub.span.text, obj.span.text] not in captured:
+                    if task == 'biored':
+                        if type_pair in biored_entity_pairs:
+                            head = sub.span.text
+                            tail = obj.span.text
+                            head_type, tail_type = type_pair
+                            if head + '$$' + head_type + '$$' + tail + '$$' + tail_type in captured:
+                                continue
+                            if tail + '$$' + tail_type + '$$' + head + '$$' + head_type in captured:
+                                continue
+
                             label = gold_rel.get((sub.span, obj.span), 'no_relation')
-                            if label == 'no_relation':
-                                label = gold_rel.get((obj.span, sub.span), 'no_relation')
-                                if label == 'no_relation':
-                                    num_null += 1
-                                    if num_null > 15000:
-                                        continue
+                            reverse_label = gold_rel.get((obj.span, sub.span), 'no_relation')
+
+                            if label != 'no_relation':
+                                real_label = label
+                            if reverse_label != 'no_relation':
+                                real_label = reverse_label
+                            if label == 'no_relation' and reverse_label == 'no_relation':
+                                real_label = 'no_relation'
+
+                            captured.append(head + '$$' + head_type + '$$' + tail + '$$' + tail_type)
+                            captured.append(tail + '$$' + tail_type + '$$' + head + '$$' + head_type)
+
                             sample = {}
                             sample['docid'] = doc._doc_key
                             sample['id'] = '%s@%d::(%d,%d)-(%d,%d)' % (
                                 doc._doc_key, sent.sentence_ix, sub.span.start_doc, sub.span.end_doc,
                                 obj.span.start_doc,
                                 obj.span.end_doc)
-                            sample['relation'] = label
+                            sample['relation'] = real_label
                             sample['subj_start'] = sub.span.start_sent + sent_start
                             sample['subj_end'] = sub.span.end_sent + sent_start
                             sample['subj_type'] = sub.label
@@ -154,9 +167,6 @@ def generate_relation_data(entity_data, context_window=0, task=None):
                             sample['sent_end'] = sent_end
 
                             sent_samples.append(sample)
-
-                            captured.append([sub.span.text, obj.span.text])
-                            captured.append([obj.span.text, sub.span.text])
 
                     if task == 'scierc':
                         if [sub.span, obj.span] not in captured:
