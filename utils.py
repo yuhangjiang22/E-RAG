@@ -4,6 +4,13 @@ from data_structures import Dataset
 
 logger = logging.getLogger('root')
 
+type_map = {
+    'DiseaseOrPhenotypicFeature': 'disease',
+    'SequenceVariant': 'variant',
+    'GeneOrGeneProduct': 'gene',
+    'ChemicalEntity': 'drug'
+}
+
 
 def decode_sample_id(sample_id):
     doc_sent = sample_id.split('::')[0]
