@@ -128,8 +128,8 @@ def generate_relation_data(entity_data, context_window=0, task=None):
 
                     if task == 'biored':
                         if type_pair in biored_entity_pairs:
-                            head = sub.span.text
-                            tail = obj.span.text
+                            head = ' '.join(sub.span.text)
+                            tail = ' '.join(obj.span.text)
                             head_type, tail_type = type_pair
                             if head + '$$' + head_type + '$$' + tail + '$$' + tail_type in captured:
                                 continue
