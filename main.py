@@ -601,63 +601,63 @@ def main(args):
                                         (args.eval_metric, str(lr), epoch, result[args.eval_metric] * 100.0))
                             save_trained_model(args.output_dir, model, tokenizer)
 
-        if args.do_eval:
+    if args.do_eval:
+        logger.info(special_tokens)
+        if args.eval_test:
+            eval_dataset = test_dataset
+            eval_examples = test_examples
+            eval_features = convert_examples_to_features(
+                args, test_examples, label2id, tokenizer, special_tokens, relevant_documents, unused_tokens=not(args.add_new_tokens))
             logger.info(special_tokens)
-            if args.eval_test:
-                eval_dataset = test_dataset
-                eval_examples = test_examples
-                eval_features = convert_examples_to_features(
-                    args, test_examples, label2id, tokenizer, special_tokens, relevant_documents, unused_tokens=not(args.add_new_tokens))
-                logger.info(special_tokens)
-                logger.info("***** Test *****")
-                logger.info("  Num examples = %d", len(test_examples))
-                logger.info("  Batch size = %d", args.eval_batch_size)
-                all_input_ids = torch.tensor([f.input_ids for f in eval_features], dtype=torch.long)
-                all_input_mask = torch.tensor([f.input_mask for f in eval_features], dtype=torch.long)
-                all_segment_ids = torch.tensor([f.segment_ids for f in eval_features], dtype=torch.long)
-                all_label_ids = torch.tensor([f.label_id for f in eval_features], dtype=torch.long)
-                all_sub_idx = torch.tensor([f.sub_idx for f in eval_features], dtype=torch.long)
-                all_obj_idx = torch.tensor([f.obj_idx for f in eval_features], dtype=torch.long)
+            logger.info("***** Test *****")
+            logger.info("  Num examples = %d", len(test_examples))
+            logger.info("  Batch size = %d", args.eval_batch_size)
+            all_input_ids = torch.tensor([f.input_ids for f in eval_features], dtype=torch.long)
+            all_input_mask = torch.tensor([f.input_mask for f in eval_features], dtype=torch.long)
+            all_segment_ids = torch.tensor([f.segment_ids for f in eval_features], dtype=torch.long)
+            all_label_ids = torch.tensor([f.label_id for f in eval_features], dtype=torch.long)
+            all_sub_idx = torch.tensor([f.sub_idx for f in eval_features], dtype=torch.long)
+            all_obj_idx = torch.tensor([f.obj_idx for f in eval_features], dtype=torch.long)
 
-                all_doc_input_ids = torch.tensor([f.doc_input_ids for f in eval_features], dtype=torch.long)
-                all_doc_input_mask = torch.tensor([f.doc_input_mask for f in eval_features], dtype=torch.long)
-                all_doc_segment_ids = torch.tensor([f.doc_segment_ids for f in eval_features], dtype=torch.long)
+            all_doc_input_ids = torch.tensor([f.doc_input_ids for f in eval_features], dtype=torch.long)
+            all_doc_input_mask = torch.tensor([f.doc_input_mask for f in eval_features], dtype=torch.long)
+            all_doc_segment_ids = torch.tensor([f.doc_segment_ids for f in eval_features], dtype=torch.long)
 
-                eval_data = TensorDataset(all_input_ids,
-                                           all_input_mask,
-                                           all_segment_ids,
-                                           all_label_ids,
-                                           all_sub_idx,
-                                           all_obj_idx,
-                                           all_doc_input_ids,
-                                           all_doc_input_mask,
-                                           all_doc_segment_ids)
+            eval_data = TensorDataset(all_input_ids,
+                                       all_input_mask,
+                                       all_segment_ids,
+                                       all_label_ids,
+                                       all_sub_idx,
+                                       all_obj_idx,
+                                       all_doc_input_ids,
+                                       all_doc_input_mask,
+                                       all_doc_segment_ids)
 
-                eval_dataloader = DataLoader(eval_data, batch_size=args.eval_batch_size)
-                eval_label_ids = all_label_ids
-            if args.cross_att:
-                model = ERAGWithCrossAttention.from_pretrained(args.output_dir, num_labels=num_labels)
-            elif args.doc_mhatt:
-                model = ERAGWithDocumentMHAttention.from_pretrained(args.output_dir, num_labels=num_labels)
-            elif args.doc_att:
-                model = ERAGWithDocumentAttention.from_pretrained(args.output_dir, num_labels=num_labels)
-            elif args.self_rag:
-                model = ERAGWithSelfRAG.from_pretrained(args.output_dir, num_labels=num_labels)
-            else:
-                model = ERAG.from_pretrained(args.output_dir, num_labels=num_labels)
-            model.to(device)
-            preds, result = evaluate(model=model,
-                                     device=device,
-                                     eval_dataloader=eval_dataloader,
-                                     eval_label_ids=eval_label_ids,
-                                     )
+            eval_dataloader = DataLoader(eval_data, batch_size=args.eval_batch_size)
+            eval_label_ids = all_label_ids
+        if args.cross_att:
+            model = ERAGWithCrossAttention.from_pretrained(args.output_dir, num_labels=num_labels)
+        elif args.doc_mhatt:
+            model = ERAGWithDocumentMHAttention.from_pretrained(args.output_dir, num_labels=num_labels)
+        elif args.doc_att:
+            model = ERAGWithDocumentAttention.from_pretrained(args.output_dir, num_labels=num_labels)
+        elif args.self_rag:
+            model = ERAGWithSelfRAG.from_pretrained(args.output_dir, num_labels=num_labels)
+        else:
+            model = ERAG.from_pretrained(args.output_dir, num_labels=num_labels)
+        model.to(device)
+        preds, result = evaluate(model=model,
+                                 device=device,
+                                 eval_dataloader=eval_dataloader,
+                                 eval_label_ids=eval_label_ids,
+                                 )
 
-            logger.info('*** Evaluation Results ***')
-            for key in sorted(result.keys()):
-                logger.info("  %s = %s", key, str(result[key]))
+        logger.info('*** Evaluation Results ***')
+        for key in sorted(result.keys()):
+            logger.info("  %s = %s", key, str(result[key]))
 
-            print_pred_json(eval_dataset, eval_examples, preds, id2label,
-                            os.path.join(args.output_dir, args.prediction_file))
+        print_pred_json(eval_dataset, eval_examples, preds, id2label,
+                        os.path.join(args.output_dir, args.prediction_file))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
