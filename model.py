@@ -590,3 +590,115 @@ class ERAGWithDocumentMHAttention(PreTrainedModel):
             return combined_loss
         else:
             return combined_logits
+
+
+class ERAGWithSelfRAG(PreTrainedModel):
+
+    config_class = ERAGConfig
+
+    def __init__(self, config):
+        super(ERAGWithSelfRAG, self).__init__(config)
+
+        hf_config = AutoConfig.from_pretrained(config.pretrained_model_name_or_path)
+        self.hf_config = hf_config
+
+        self.input_encoder = AutoModel.from_pretrained(config.pretrained_model_name_or_path, add_pooling_layer=False)
+        self.documents_encoder = AutoModel.from_pretrained(config.pretrained_model_name_or_path, add_pooling_layer=False)
+
+        # self.document_attention = MultiHeadDocumentAttention(hf_config.hidden_size, 12)
+        self.document_attention = DocumentAttention(hf_config.hidden_size)
+        self.layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
+        self.combined_rep_layer_norm = nn.LayerNorm(hf_config.hidden_size * 3)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+
+        # Classifiers
+        self.input_classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)  # For input-only logits
+        self.doc_classifier = nn.Linear(hf_config.hidden_size * 3, config.num_labels)  # For document-only logits
+        self.combined_classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)  # For combined logits
+
+        # Dynamic Relevance Network: a small feedforward network that predicts a dynamic relevance score
+        self.relevance_net = nn.Sequential(
+            nn.Linear(self.config.num_labels, hf_config.hidden_size),
+            nn.ReLU(),
+            nn.Linear(hf_config.hidden_size, 1),
+            nn.Sigmoid()  # Output relevance score between 0 and 1
+        )
+
+    def forward(self,
+                input_ids: torch.LongTensor = None,
+                attention_mask: torch.Tensor = None,
+                token_type_ids: torch.Tensor = None,
+                labels=None,
+                sub_idx=None,
+                obj_idx=None,
+                doc_input_ids: torch.LongTensor = None,
+                doc_input_mask: torch.Tensor = None,
+                doc_type_ids: torch.Tensor = None,
+                return_dict: bool = None,):
+        # Encode input text
+        input_outputs = self.input_encoder(
+            input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, return_dict=return_dict
+        )
+        sequence_output = input_outputs.last_hidden_state
+        batch_size, seq_len, hidden_size = sequence_output.shape
+
+        # Encode documents
+        doc_outputs = self.documents_encoder(
+            doc_input_ids, attention_mask=doc_input_mask, token_type_ids=doc_type_ids, return_dict=return_dict
+        )
+        doc_sequence_output = doc_outputs.last_hidden_state
+
+        # Use attention to weight the document's relevance dynamically
+        input_cls_rep = sequence_output[:, 0, :]  # batch_size x hidden_size
+
+        num_docs = int(doc_sequence_output.size(0) / batch_size)
+        doc_sequence_output = doc_sequence_output.view(batch_size, num_docs, seq_len, hidden_size)
+        doc_input_mask = doc_input_mask.view(batch_size, num_docs, seq_len)
+        doc_sequence_output = doc_sequence_output.view(batch_size, seq_len * num_docs, hidden_size)
+
+        doc_input_mask = doc_input_mask.view(batch_size, seq_len * num_docs)
+        attended_doc_rep, attention_probs = self.document_attention(input_cls_rep, doc_sequence_output,
+                                                                    doc_mask=doc_input_mask)
+
+        # Get subject-object representations for input
+        sub_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(sequence_output, sub_idx)])
+        obj_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(sequence_output, obj_idx)])
+
+        # Final relation representation (subject-object interaction)
+        input_relation_rep = torch.cat((sub_output, obj_output), dim=-1)
+
+        # Combine input and document representations
+        combined_rep = torch.cat((input_relation_rep, attended_doc_rep), dim=-1)
+
+        # Apply LayerNorm, dropout, and classifier
+        combined_rep = self.combined_rep_layer_norm(combined_rep)
+        combined_rep = self.dropout(combined_rep)
+
+        input_relation_rep = self.layer_norm(input_relation_rep)
+        input_relation_rep = self.dropout(input_relation_rep)
+
+        # Compute input-only and document-only logits
+        input_logits = self.input_classifier(input_relation_rep)  # Input-based logits
+        doc_logits = self.doc_classifier(combined_rep)  # Document-based logits
+
+        # Dynamic relevance score prediction (use input and document representations)
+        # relevance_input = torch.cat([input_cls_rep, attended_doc_rep], dim=-1)  # Combine input and doc [CLS] reps
+        dynamic_relevance_score = self.relevance_net(input_logits).squeeze(
+            -1)  # Predict relevance score per instance
+
+        # Compute the combined logits based on the dynamic relevance score
+        combined_logits = dynamic_relevance_score.unsqueeze(1) * doc_logits + (
+                    1 - dynamic_relevance_score.unsqueeze(1)) * input_logits
+
+        if labels is not None:
+            # Loss calculation
+            loss_fct = nn.CrossEntropyLoss()
+            combined_loss = loss_fct(combined_logits.view(-1, self.combined_classifier.out_features), labels.view(-1))
+            input_loss = loss_fct(input_logits.view(-1, self.input_classifier.out_features), labels.view(-1))
+            # doc_loss = loss_fct(doc_logits.view(-1, self.doc_classifier.out_features), labels.view(-1))
+
+            # Total loss (using the dynamic relevance score to weigh input and document losses)
+            # loss = dynamic_relevance_score * doc_loss + (1 - dynamic_relevance_score) * input_loss + combined_loss
+            return (combined_loss + input_loss) / 2
+        else:
+            return combined_logits
