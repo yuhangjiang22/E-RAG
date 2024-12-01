@@ -338,6 +338,7 @@ class ERAGWithDocumentAttention(PreTrainedModel):
         self.layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
         self.combined_rep_layer_norm = nn.LayerNorm(hf_config.hidden_size * 3)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.relation_linear = nn.Linear(hf_config.hidden_size * 2, hf_config.hidden_size)
 
         # Classifiers
         self.input_classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)  # For input-only logits
@@ -378,16 +379,17 @@ class ERAGWithDocumentAttention(PreTrainedModel):
         # Use attention to weight the document's relevance dynamically
         input_cls_rep = sequence_output[:, 0, :]  # batch_size x hidden_size
 
-        # Compute the attention-weighted document representation
-        attended_doc_rep, attention_probs = self.document_attention(input_cls_rep, doc_sequence_output,
-                                                                    doc_mask=doc_input_mask)
-
         # Get subject-object representations for input
         sub_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(sequence_output, sub_idx)])
         obj_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(sequence_output, obj_idx)])
 
         # Final relation representation (subject-object interaction)
         input_relation_rep = torch.cat((sub_output, obj_output), dim=-1)
+        input_relation_rep = self.relation_linear(input_relation_rep)
+
+        # Compute the attention-weighted document representation
+        attended_doc_rep, attention_probs = self.document_attention(input_relation_rep, doc_sequence_output,
+                                                                    doc_mask=doc_input_mask)
 
         # Combine input and document representations
         combined_rep = torch.cat((input_relation_rep, attended_doc_rep), dim=-1)
