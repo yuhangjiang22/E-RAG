@@ -12,7 +12,7 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 from torch.utils.data import DataLoader, TensorDataset
 from utils import generate_relation_data, decode_sample_id
 from const import task_rel_labels, task_ner_labels
-from model import ERAG, ERAGWithCrossAttention, ERAGWithDocumentAttention, ERAGWithDocumentMHAttention, ERAGWithSelfRAG, ERAGConfig
+from model import ERAG, ERAGWithCrossAttention, ERAGWithDocumentAttention, ERAGWithDocumentMHAttention, ERAGWithSelfRAG, ERAGWithSelfRAG2, ERAGConfig
 
 biored_type_map = {
     'DiseaseOrPhenotypicFeature': 'disease',
@@ -519,6 +519,8 @@ def main(args):
             model = ERAGWithDocumentAttention(config)
         elif args.self_rag:
             model = ERAGWithSelfRAG(config)
+        elif args.self_rag2:
+            model = ERAGWithSelfRAG2(config)
         else:
             model = ERAG(config)
 
@@ -718,6 +720,7 @@ if __name__ == "__main__":
     parser.add_argument('--doc_att', action='store_true')
     parser.add_argument('--doc_mhatt', action='store_true')
     parser.add_argument('--self_rag', action='store_true')
+    parser.add_argument('--self_rag2', action='store_true')
     # parser.add_argument('--doc_type', type=str, default=None, required=True,
                         # choices=['doc', 'doc_pair'])
     args = parser.parse_args()
