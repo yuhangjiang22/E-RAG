@@ -710,7 +710,7 @@ class ERAGWithSelfRAG2(PreTrainedModel):
     config_class = ERAGConfig
 
     def __init__(self, config):
-        super(ERAGWithSelfRAG, self).__init__(config)
+        super(ERAGWithSelfRAG2, self).__init__(config)
 
         hf_config = AutoConfig.from_pretrained(config.pretrained_model_name_or_path)
         self.hf_config = hf_config
