@@ -721,13 +721,13 @@ class ERAGWithSelfRAG2(PreTrainedModel):
         # self.document_attention = MultiHeadDocumentAttention(hf_config.hidden_size, 12)
         self.document_attention = DocumentAttention(hf_config.hidden_size)
         self.layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
-        self.combined_rep_layer_norm = nn.LayerNorm(hf_config.hidden_size * 3)
+        self.combined_rep_layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.relation_linear = nn.Linear(hf_config.hidden_size * 2, hf_config.hidden_size)
 
         # Classifiers
-        self.input_classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)  # For input-only logits
-        self.doc_classifier = nn.Linear(hf_config.hidden_size * 3, config.num_labels)  # For document-only logits
+        self.input_classifier = nn.Linear(hf_config.hidden_size, config.num_labels)  # For input-only logits
+        self.doc_classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)  # For document-only logits
         self.combined_classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)  # For combined logits
 
         # Dynamic Relevance Network: a small feedforward network that predicts a dynamic relevance score
