@@ -645,6 +645,8 @@ def main(args):
             model = ERAGWithDocumentAttention.from_pretrained(args.output_dir, num_labels=num_labels)
         elif args.self_rag:
             model = ERAGWithSelfRAG.from_pretrained(args.output_dir, num_labels=num_labels)
+        elif args.self_rag2:
+            model = ERAGWithSelfRAG2.from_pretrained(args.output_dir, num_labels=num_labels)
         else:
             model = ERAG.from_pretrained(args.output_dir, num_labels=num_labels)
         model.to(device)
