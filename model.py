@@ -778,8 +778,11 @@ class ERAGWithSelfRAG2(PreTrainedModel):
         input_relation_rep = torch.cat((sub_output, obj_output), dim=-1)
         input_relation_rep = self.relation_linear(input_relation_rep)
 
+        input_cls_rep = self.layer_norm(input_cls_rep)
+        input_cls_rep = self.dropout(input_cls_rep)
+
         doc_input_mask = doc_input_mask.view(batch_size, seq_len * num_docs)
-        attended_doc_rep, attention_probs = self.document_attention(input_relation_rep, doc_sequence_output,
+        attended_doc_rep, attention_probs = self.document_attention(input_cls_rep, doc_sequence_output,
                                                                     doc_mask=doc_input_mask)
 
 
@@ -790,11 +793,11 @@ class ERAGWithSelfRAG2(PreTrainedModel):
         combined_rep = self.combined_rep_layer_norm(combined_rep)
         combined_rep = self.dropout(combined_rep)
 
-        input_relation_rep = self.layer_norm(input_relation_rep)
-        input_relation_rep = self.dropout(input_relation_rep)
+        # input_cls_rep = self.layer_norm(input_cls_rep)
+        # input_cls_rep = self.dropout(input_cls_rep)
 
         # Compute input-only and document-only logits
-        input_logits = self.input_classifier(input_relation_rep)  # Input-based logits
+        input_logits = self.input_classifier(input_cls_rep)  # Input-based logits
         doc_logits = self.doc_classifier(combined_rep)  # Document-based logits
 
         # Dynamic relevance score prediction (use input and document representations)
