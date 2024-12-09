@@ -829,7 +829,7 @@ class ERAGWithSelfRAG2(PreTrainedModel):
 
 class DocumentAttention2(nn.Module):
     def __init__(self, hidden_size):
-        super(DocumentAttention, self).__init__()
+        super(DocumentAttention2, self).__init__()
         self.query = nn.Linear(hidden_size, hidden_size)
         self.key = nn.Linear(hidden_size, hidden_size)
         self.value = nn.Linear(hidden_size, hidden_size)
