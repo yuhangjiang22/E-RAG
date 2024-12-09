@@ -719,15 +719,16 @@ class ERAGWithSelfRAG2(PreTrainedModel):
         self.documents_encoder = AutoModel.from_pretrained(config.pretrained_model_name_or_path, add_pooling_layer=False)
 
         # self.document_attention = MultiHeadDocumentAttention(hf_config.hidden_size, 12)
-        self.document_attention = DocumentAttention(hf_config.hidden_size)
-        self.layer_norm = nn.LayerNorm(hf_config.hidden_size)
-        self.combined_rep_layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
+        self.document_attention = DocumentAttention2(hf_config.hidden_size)
+        self.document_attention2 = DocumentAttention2(hf_config.hidden_size)
+        self.cls_layer_norm = nn.LayerNorm(hf_config.hidden_size)
+        self.layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
+        self.combined_rep_layer_norm = nn.LayerNorm(hf_config.hidden_size * 3)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.relation_linear = nn.Linear(hf_config.hidden_size * 2, hf_config.hidden_size)
 
         # Classifiers
-        self.input_classifier = nn.Linear(hf_config.hidden_size, config.num_labels)  # For input-only logits
-        self.doc_classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)  # For document-only logits
+        self.input_classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)  # For input-only logits
+        self.doc_classifier = nn.Linear(hf_config.hidden_size * 3, config.num_labels)  # For document-only logits
         self.combined_classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)  # For combined logits
 
         # Dynamic Relevance Network: a small feedforward network that predicts a dynamic relevance score
@@ -764,11 +765,24 @@ class ERAGWithSelfRAG2(PreTrainedModel):
 
         # Use attention to weight the document's relevance dynamically
         input_cls_rep = sequence_output[:, 0, :]  # batch_size x hidden_size
+        input_cls_rep = self.cls_layer_norm(input_cls_rep)
+        input_cls_rep = self.dropout(input_cls_rep)
 
         num_docs = int(doc_sequence_output.size(0) / batch_size)
         doc_sequence_output = doc_sequence_output.view(batch_size, num_docs, seq_len, hidden_size)
         doc_input_mask = doc_input_mask.view(batch_size, num_docs, seq_len)
         doc_sequence_output = doc_sequence_output.view(batch_size, seq_len * num_docs, hidden_size)
+
+        doc_input_mask = doc_input_mask.view(batch_size, seq_len * num_docs)
+        attended_doc_rep, attention_probs = self.document_attention(input_cls_rep, doc_sequence_output,
+                                                                    doc_mask=doc_input_mask)
+        attended_doc_rep = self.cls_layer_norm(attended_doc_rep)
+        attended_doc_rep = self.dropout(attended_doc_rep)
+
+        attended_doc_rep, attention_probs = self.document_attention2(attended_doc_rep, doc_sequence_output,
+                                                                    doc_mask=doc_input_mask)
+        attended_doc_rep = self.cls_layer_norm(attended_doc_rep)
+        attended_doc_rep = self.dropout(attended_doc_rep)
 
         # Get subject-object representations for input
         sub_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(sequence_output, sub_idx)])
@@ -776,15 +790,6 @@ class ERAGWithSelfRAG2(PreTrainedModel):
 
         # Final relation representation (subject-object interaction)
         input_relation_rep = torch.cat((sub_output, obj_output), dim=-1)
-        input_relation_rep = self.relation_linear(input_relation_rep)
-
-        input_cls_rep = self.layer_norm(input_cls_rep)
-        input_cls_rep = self.dropout(input_cls_rep)
-
-        doc_input_mask = doc_input_mask.view(batch_size, seq_len * num_docs)
-        attended_doc_rep, attention_probs = self.document_attention(input_cls_rep, doc_sequence_output,
-                                                                    doc_mask=doc_input_mask)
-
 
         # Combine input and document representations
         combined_rep = torch.cat((input_relation_rep, attended_doc_rep), dim=-1)
@@ -793,11 +798,11 @@ class ERAGWithSelfRAG2(PreTrainedModel):
         combined_rep = self.combined_rep_layer_norm(combined_rep)
         combined_rep = self.dropout(combined_rep)
 
-        # input_cls_rep = self.layer_norm(input_cls_rep)
-        # input_cls_rep = self.dropout(input_cls_rep)
+        input_relation_rep = self.layer_norm(input_relation_rep)
+        input_relation_rep = self.dropout(input_relation_rep)
 
         # Compute input-only and document-only logits
-        input_logits = self.input_classifier(input_cls_rep)  # Input-based logits
+        input_logits = self.input_classifier(input_relation_rep)  # Input-based logits
         doc_logits = self.doc_classifier(combined_rep)  # Document-based logits
 
         # Dynamic relevance score prediction (use input and document representations)
@@ -821,3 +826,31 @@ class ERAGWithSelfRAG2(PreTrainedModel):
             return (combined_loss + input_loss) / 2
         else:
             return combined_logits
+
+class DocumentAttention2(nn.Module):
+    def __init__(self, hidden_size):
+        super(DocumentAttention, self).__init__()
+        self.query = nn.Linear(hidden_size, hidden_size)
+        self.key = nn.Linear(hidden_size, hidden_size)
+        self.value = nn.Linear(hidden_size, hidden_size)
+        self.attention_dropout = nn.Dropout(0.1)
+
+    def forward(self, query_tensor, key_value_tensor, doc_mask=None):
+        # Compute attention scores (dot-product)
+        query_layer = self.query(query_tensor).unsqueeze(1)  # batch_size x 1 x hidden_size
+        key_layer = self.key(key_value_tensor)  # batch_size x doc_seq_len x hidden_size
+        attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2)).squeeze(1)  # batch_size x doc_seq_len
+
+        # Apply attention mask (if provided)
+        if doc_mask is not None:
+            attention_scores = attention_scores.masked_fill(doc_mask == 0, -1e9)
+
+        attention_probs = nn.Softmax(dim=-1)(attention_scores)  # batch_size x doc_seq_len
+        attention_probs = self.attention_dropout(attention_probs)
+
+        # Weighted sum of document representations
+        value_layer = self.value(key_value_tensor)
+        attended_document_rep = torch.matmul(attention_probs.unsqueeze(1), value_layer).squeeze(
+            1)  # batch_size x hidden_size
+
+        return attended_document_rep, attention_probs
