@@ -722,6 +722,7 @@ class ERAGWithSelfRAG2(PreTrainedModel):
         self.document_attention = DocumentAttention2(hf_config.hidden_size)
         self.document_attention2 = DocumentAttention2(hf_config.hidden_size)
         self.document_attention3 = DocumentAttention2(hf_config.hidden_size)
+        self.self_attention = SelfAttention(hf_config.hidden_size, 12)
         self.cls_layer_norm = nn.LayerNorm(hf_config.hidden_size)
         self.layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
         self.combined_rep_layer_norm = nn.LayerNorm(hf_config.hidden_size * 3)
@@ -764,10 +765,10 @@ class ERAGWithSelfRAG2(PreTrainedModel):
         )
         doc_sequence_output = doc_outputs.last_hidden_state
 
-        # Use attention to weight the document's relevance dynamically
-        input_cls_rep = sequence_output[:, 0, :]  # batch_size x hidden_size
-        input_cls_rep = self.cls_layer_norm(input_cls_rep)
-        input_cls_rep = self.dropout(input_cls_rep)
+        # # Use attention to weight the document's relevance dynamically
+        # input_cls_rep = sequence_output[:, 0, :]  # batch_size x hidden_size
+        # input_cls_rep = self.cls_layer_norm(input_cls_rep)
+        # input_cls_rep = self.dropout(input_cls_rep)
 
         num_docs = int(doc_sequence_output.size(0) / batch_size)
         doc_sequence_output = doc_sequence_output.view(batch_size, num_docs, seq_len, hidden_size)
@@ -775,41 +776,51 @@ class ERAGWithSelfRAG2(PreTrainedModel):
         doc_sequence_output = doc_sequence_output.view(batch_size, seq_len * num_docs, hidden_size)
 
         doc_input_mask = doc_input_mask.view(batch_size, seq_len * num_docs)
-        attended_doc_rep, attention_probs = self.document_attention(input_cls_rep, doc_sequence_output,
-                                                                    doc_mask=doc_input_mask)
-        attended_doc_rep = self.cls_layer_norm(attended_doc_rep)
-        attended_doc_rep = self.dropout(attended_doc_rep)
 
-        attended_doc_rep, attention_probs = self.document_attention2(attended_doc_rep, doc_sequence_output,
-                                                                    doc_mask=doc_input_mask)
-        attended_doc_rep = self.cls_layer_norm(attended_doc_rep)
-        attended_doc_rep = self.dropout(attended_doc_rep)
+        concatenated = torch.cat(sequence_output, doc_sequence_output, dim=1)
+        concatenated_masks = torch.cat(attention_mask, doc_input_mask, dim=-1)
+        attended = self.self_attention(concatenated, concatenated_masks)
 
-        attended_doc_rep, attention_probs = self.document_attention3(attended_doc_rep, doc_sequence_output,
-                                                                     doc_mask=doc_input_mask)
-        attended_doc_rep = self.cls_layer_norm(attended_doc_rep)
-        attended_doc_rep = self.dropout(attended_doc_rep)
+        # attended_doc_rep, attention_probs = self.document_attention(input_cls_rep, doc_sequence_output,
+        #                                                             doc_mask=doc_input_mask)
+        # attended_doc_rep = self.cls_layer_norm(attended_doc_rep)
+        # attended_doc_rep = self.dropout(attended_doc_rep)
+        #
+        # attended_doc_rep, attention_probs = self.document_attention2(attended_doc_rep, doc_sequence_output,
+        #                                                             doc_mask=doc_input_mask)
+        # attended_doc_rep = self.cls_layer_norm(attended_doc_rep)
+        # attended_doc_rep = self.dropout(attended_doc_rep)
+        #
+        # attended_doc_rep, attention_probs = self.document_attention3(attended_doc_rep, doc_sequence_output,
+        #                                                              doc_mask=doc_input_mask)
 
         # Get subject-object representations for input
         sub_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(sequence_output, sub_idx)])
         obj_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(sequence_output, obj_idx)])
 
+        att_sub_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(attended, sub_idx)])
+        att_obj_output = torch.cat([a[i].unsqueeze(0) for a, i in zip(attended, obj_idx)])
+
         # Final relation representation (subject-object interaction)
         input_relation_rep = torch.cat((sub_output, obj_output), dim=-1)
+        att_relation_rep = torch.cat((att_sub_output, att_obj_output), dim=-1)
 
         # Combine input and document representations
-        combined_rep = torch.cat((input_relation_rep, attended_doc_rep), dim=-1)
+        # combined_rep = torch.cat((input_relation_rep, attended_doc_rep), dim=-1)
 
         # Apply LayerNorm, dropout, and classifier
-        combined_rep = self.combined_rep_layer_norm(combined_rep)
-        combined_rep = self.dropout(combined_rep)
+        # combined_rep = self.combined_rep_layer_norm(combined_rep)
+        # combined_rep = self.dropout(combined_rep)
 
         input_relation_rep = self.layer_norm(input_relation_rep)
         input_relation_rep = self.dropout(input_relation_rep)
 
+        att_relation_rep = self.layer_norm(att_relation_rep)
+        att_relation_rep = self.dropout(att_relation_rep)
+
         # Compute input-only and document-only logits
         input_logits = self.input_classifier(input_relation_rep)  # Input-based logits
-        doc_logits = self.doc_classifier(combined_rep)  # Document-based logits
+        att_logits = self.input_classifier(att_relation_rep)  # Document-based logits
 
         # Dynamic relevance score prediction (use input and document representations)
         # relevance_input = torch.cat([input_cls_rep, attended_doc_rep], dim=-1)  # Combine input and doc [CLS] reps
@@ -817,7 +828,7 @@ class ERAGWithSelfRAG2(PreTrainedModel):
             -1)  # Predict relevance score per instance
 
         # Compute the combined logits based on the dynamic relevance score
-        combined_logits = dynamic_relevance_score.unsqueeze(1) * doc_logits + (
+        combined_logits = dynamic_relevance_score.unsqueeze(1) * att_logits + (
                     1 - dynamic_relevance_score.unsqueeze(1)) * input_logits
 
         if labels is not None:
@@ -860,3 +871,87 @@ class DocumentAttention2(nn.Module):
             1)  # batch_size x hidden_size
 
         return attended_document_rep, attention_probs
+
+class SelfAttention(nn.Module):
+    def __init__(self, embed_dim, num_heads):
+        """
+        A self-attention module.
+
+        Args:
+            embed_dim (int): Dimensionality of the input embeddings.
+            num_heads (int): Number of attention heads.
+        """
+        super(SelfAttention, self).__init__()
+
+        if embed_dim % num_heads != 0:
+            raise ValueError("Embedding dimension must be divisible by number of heads.")
+
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        self.head_dim = embed_dim // num_heads
+
+        # Define the query, key, and value projection layers
+        self.query_proj = nn.Linear(embed_dim, embed_dim)
+        self.key_proj = nn.Linear(embed_dim, embed_dim)
+        self.value_proj = nn.Linear(embed_dim, embed_dim)
+
+        # Output projection layer
+        self.out_proj = nn.Linear(embed_dim, embed_dim)
+
+    def forward(self, x, mask=None):
+        """
+        Forward pass for self-attention.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, seq_length, embed_dim).
+            mask (torch.Tensor, optional): Mask tensor of shape (batch_size, 1, seq_length, seq_length),
+                                           where masked positions are set to a large negative value (-inf).
+
+        Returns:
+            torch.Tensor: Output tensor of shape (batch_size, seq_length, embed_dim).
+        """
+        batch_size, seq_length, embed_dim = x.size()
+
+        if embed_dim != self.embed_dim:
+            raise ValueError("Input embedding dimension does not match the configured embed_dim.")
+
+        # Compute query, key, and value matrices
+        queries = self.query_proj(x)  # Shape: (batch_size, seq_length, embed_dim)
+        keys = self.key_proj(x)  # Shape: (batch_size, seq_length, embed_dim)
+        values = self.value_proj(x)  # Shape: (batch_size, seq_length, embed_dim)
+
+        # Reshape for multi-head attention
+        queries = queries.view(batch_size, seq_length, self.num_heads, self.head_dim).transpose(1,
+                                                                                                2)  # Shape: (batch_size, num_heads, seq_length, head_dim)
+        keys = keys.view(batch_size, seq_length, self.num_heads, self.head_dim).transpose(1,
+                                                                                          2)  # Shape: (batch_size, num_heads, seq_length, head_dim)
+        values = values.view(batch_size, seq_length, self.num_heads, self.head_dim).transpose(1,
+                                                                                              2)  # Shape: (batch_size, num_heads, seq_length, head_dim)
+
+        # Compute scaled dot-product attention
+        scores = torch.matmul(queries, keys.transpose(-2, -1)) / (
+                    self.head_dim ** 0.5)  # Shape: (batch_size, num_heads, seq_length, seq_length)
+
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, float('-inf'))  # Apply the mask
+
+        attention_weights = F.softmax(scores, dim=-1)  # Shape: (batch_size, num_heads, seq_length, seq_length)
+
+        attention_output = torch.matmul(attention_weights,
+                                        values)  # Shape: (batch_size, num_heads, seq_length, head_dim)
+
+        # Combine heads
+        attention_output = attention_output.transpose(1,
+                                                      2).contiguous()  # Shape: (batch_size, seq_length, num_heads, head_dim)
+        attention_output = attention_output.view(batch_size, seq_length,
+                                                 self.embed_dim)  # Shape: (batch_size, seq_length, embed_dim)
+
+        # Apply the output projection
+        output = self.out_proj(attention_output)  # Shape: (batch_size, seq_length, embed_dim)
+
+        return output
+
+
+
+
+
