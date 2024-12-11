@@ -844,6 +844,7 @@ class ERAGWithSelfRAG2(PreTrainedModel):
         else:
             return combined_logits
 
+
 class DocumentAttention2(nn.Module):
     def __init__(self, hidden_size):
         super(DocumentAttention2, self).__init__()
