@@ -777,8 +777,8 @@ class ERAGWithSelfRAG2(PreTrainedModel):
 
         doc_input_mask = doc_input_mask.view(batch_size, seq_len * num_docs)
 
-        concatenated = torch.cat(sequence_output, doc_sequence_output, dim=1)
-        concatenated_masks = torch.cat(attention_mask, doc_input_mask, dim=-1)
+        concatenated = torch.cat([sequence_output, doc_sequence_output], dim=1)
+        concatenated_masks = torch.cat([attention_mask, doc_input_mask], dim=-1)
         attended = self.self_attention(concatenated, concatenated_masks)
 
         # attended_doc_rep, attention_probs = self.document_attention(input_cls_rep, doc_sequence_output,
