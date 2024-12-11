@@ -721,6 +721,7 @@ class ERAGWithSelfRAG2(PreTrainedModel):
         # self.document_attention = MultiHeadDocumentAttention(hf_config.hidden_size, 12)
         self.document_attention = DocumentAttention2(hf_config.hidden_size)
         self.document_attention2 = DocumentAttention2(hf_config.hidden_size)
+        self.document_attention3 = DocumentAttention2(hf_config.hidden_size)
         self.cls_layer_norm = nn.LayerNorm(hf_config.hidden_size)
         self.layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
         self.combined_rep_layer_norm = nn.LayerNorm(hf_config.hidden_size * 3)
@@ -781,6 +782,11 @@ class ERAGWithSelfRAG2(PreTrainedModel):
 
         attended_doc_rep, attention_probs = self.document_attention2(attended_doc_rep, doc_sequence_output,
                                                                     doc_mask=doc_input_mask)
+        attended_doc_rep = self.cls_layer_norm(attended_doc_rep)
+        attended_doc_rep = self.dropout(attended_doc_rep)
+
+        attended_doc_rep, attention_probs = self.document_attention3(attended_doc_rep, doc_sequence_output,
+                                                                     doc_mask=doc_input_mask)
         attended_doc_rep = self.cls_layer_norm(attended_doc_rep)
         attended_doc_rep = self.dropout(attended_doc_rep)
 
