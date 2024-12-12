@@ -934,6 +934,8 @@ class SelfAttention(nn.Module):
         scores = torch.matmul(queries, keys.transpose(-2, -1)) / (
                     self.head_dim ** 0.5)  # Shape: (batch_size, num_heads, seq_length, seq_length)
 
+        logger.info(scores.shape)
+
         if mask is not None:
             scores = scores.masked_fill(mask == 0, float('-inf'))  # Apply the mask
 
