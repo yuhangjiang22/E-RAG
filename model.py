@@ -917,10 +917,15 @@ class SelfAttention(nn.Module):
         if embed_dim != self.embed_dim:
             raise ValueError("Input embedding dimension does not match the configured embed_dim.")
 
+        if mask is not None and mask.dim() == 2:
+            mask = mask.unsqueeze(1).unsqueeze(2)  # Shape: (batch_size, 1, 1, seq_length)
+            mask = mask.expand(-1, -1, seq_length, -1)
+
         # Compute query, key, and value matrices
         queries = self.query_proj(x)  # Shape: (batch_size, seq_length, embed_dim)
         keys = self.key_proj(x)  # Shape: (batch_size, seq_length, embed_dim)
         values = self.value_proj(x)  # Shape: (batch_size, seq_length, embed_dim)
+
 
         # Reshape for multi-head attention
         queries = queries.view(batch_size, seq_length, self.num_heads, self.head_dim).transpose(1,
@@ -933,8 +938,6 @@ class SelfAttention(nn.Module):
         # Compute scaled dot-product attention
         scores = torch.matmul(queries, keys.transpose(-2, -1)) / (
                     self.head_dim ** 0.5)  # Shape: (batch_size, num_heads, seq_length, seq_length)
-
-        logger.info(scores.shape)
 
         if mask is not None:
             scores = scores.masked_fill(mask == 0, float('-inf'))  # Apply the mask
