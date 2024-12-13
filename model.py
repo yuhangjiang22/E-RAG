@@ -723,10 +723,12 @@ class ERAGWithSelfRAG2(PreTrainedModel):
         self.document_attention2 = DocumentAttention2(hf_config.hidden_size)
         self.document_attention3 = DocumentAttention2(hf_config.hidden_size)
         self.self_attention = SelfAttention(hf_config.hidden_size, 12)
+        self.self_attention2 = SelfAttention(hf_config.hidden_size, 12)
         self.cls_layer_norm = nn.LayerNorm(hf_config.hidden_size)
         self.layer_norm = nn.LayerNorm(hf_config.hidden_size * 2)
         self.combined_rep_layer_norm = nn.LayerNorm(hf_config.hidden_size * 3)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+
 
         # Classifiers
         self.input_classifier = nn.Linear(hf_config.hidden_size * 2, config.num_labels)  # For input-only logits
@@ -781,6 +783,8 @@ class ERAGWithSelfRAG2(PreTrainedModel):
         concatenated_masks = torch.cat([attention_mask, doc_input_mask], dim=-1)
         # logger.info(concatenated_masks.shape)
         attended = self.self_attention(concatenated, concatenated_masks)
+
+        attended = self.self_attention2(attended, concatenated_masks)
 
         # attended_doc_rep, attention_probs = self.document_attention(input_cls_rep, doc_sequence_output,
         #                                                             doc_mask=doc_input_mask)
