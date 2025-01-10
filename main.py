@@ -262,8 +262,7 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
             docs = get_documents(f'{subj}|{obj}', documents, args)
         else:
             if args.task == 'biored':
-                logger.info(example.keys())
-                doc_id = example['doc_id']
+                doc_id = example['docid']
                 docs = get_biored_documents(subj, doc_id, documents, args, example['subj_type']) + get_biored_documents(obj, doc_id, documents, args, example['obj_type'])
             else:
                 docs = get_documents(subj, documents, args, example['subj_type']) + get_documents(obj, documents, args, example['obj_type'])
