@@ -159,7 +159,7 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
             if curr_key == entity and el['type'] == biored_type_map[type]:
                 found = True
                 break
-            if curr_key.replace(' ', '') == entity.replace(' ', '') and el['type'] == type:
+            if curr_key.replace(' ', '') == entity.replace(' ', '') and el['type'] == biored_type_map[type]:
                 found = True
                 break
         if not found:
