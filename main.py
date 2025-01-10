@@ -144,6 +144,34 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
         documents = [i['content'] for i in documents]
         return documents
 
+    def get_biored_documents(entity, doc_id, documents, args, type=None):
+        num_docs = args.num_docs
+        entity_info = read_dict('biored/entityid2string.json')
+        doc_entity_info = read_dict('biored/doc2entity.json')
+        entity = update_entity(entity, entity_type=biored_type_map[type], doc_id=doc_id, entity_info=entity_info, doc_entity_info=doc_entity_info)
+        if 'entity' in documents[0]:
+            key_type = 'entity'
+        else:
+            key_type = 'entity_pair'
+        found = False
+        for el in documents:
+            curr_key = el[key_type]
+            if curr_key == entity:
+                if args.task == 'biored':
+                    if el['type'] == biored_type_map[type]:
+                        found = True
+                        break
+                else:
+                    found = True
+                    break
+        if not found:
+            logger.info('No relevant documents found for {} with type {}'.format(entity, biored_type_map[type]))
+            return []
+
+        documents = el['texts'][:num_docs]
+        documents = [i['content'] for i in documents]
+        return documents
+
     def get_doc_tokens(doc):
         doc_tokens = [CLS]
         doc = doc.split()
@@ -233,7 +261,11 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
         if 'pair' in args.document_path:
             docs = get_documents(f'{subj}|{obj}', documents, args)
         else:
-            docs = get_documents(subj, documents, args, example['subj_type']) + get_documents(obj, documents, args, example['obj_type'])
+            if args.task == 'biored':
+                doc_id = example['doc_id']
+                docs = get_biored_documents(subj, doc_id, documents, args, example['subj_type']) + get_biored_documents(obj, doc_id, documents, args, example['obj_type'])
+            else:
+                docs = get_documents(subj, documents, args, example['subj_type']) + get_documents(obj, documents, args, example['obj_type'])
 
         docs_input_ids, docs_input_mask, docs_segment_ids = [], [], []
 
@@ -363,7 +395,43 @@ def read_docs(path):
             files.append(json_line)
     return files
 
+def normalize(el, el_type, doc_id, doc_entity_info, entity_info):
+
+    def map_entity_text_to_id(doc_id, ner_type, text):
+        entity_ids = doc_entity_info[doc_id]
+        for id_ in entity_ids:
+            endwith = id_[id_.find('@@')+2:]
+            if endwith == ner_type:
+                potential_texts = entity_info[id_]
+                if text in potential_texts:
+                    # c += 1
+                    return max(potential_texts, key=len)
+                else:
+                    if text.replace(' ', '') in [t.replace(' ', '') for t in potential_texts]:
+                        # c += 1
+                        return max(potential_texts, key=len)
+        return None
+
+    new_ent = map_entity_text_to_id(doc_id, el_type, el)
+
+    return new_ent
+
+def update_entity(entity, entity_type, doc_id, doc_entity_info, entity_info):
+
+    entity = normalize(entity, entity_type, doc_id, doc_entity_info, entity_info)
+
+    return entity
+
+
+
+
+def read_dict(path):
+    with open(path, 'r') as file:
+        files = json.load(file)
+    return files
+
 def main(args):
+
     setseed(args.seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
