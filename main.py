@@ -156,14 +156,12 @@ def convert_examples_to_features(args, examples, label2id, tokenizer, special_to
         found = False
         for el in documents:
             curr_key = el[key_type]
-            if curr_key == entity:
-                if args.task == 'biored':
-                    if el['type'] == biored_type_map[type]:
-                        found = True
-                        break
-                else:
-                    found = True
-                    break
+            if curr_key == entity and el['type'] == biored_type_map[type]:
+                found = True
+                break
+            if curr_key.replace(' ', '') == entity.replace(' ', '') and el['type'] == type:
+                found = True
+                break
         if not found:
             logger.info('No relevant documents found for {} with type {}'.format(entity, biored_type_map[type]))
             return []
